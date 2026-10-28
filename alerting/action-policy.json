@@ -1,0 +1,19 @@
+{
+  "id": "defend-host-cpu-90",
+  "name": "Defend CPU triage",
+  "description": "When a host CPU alert is new, run the Defend CPU triage workflow once.",
+  "destinations": [
+    {
+      "type": "workflow",
+      "id": "defend-cpu-triage"
+    }
+  ],
+  "throttle": {
+    "strategy": "on_status_change"
+  },
+  "matcher": {
+    "tags": [
+      "notify-defend-host-cpu-90"
+    ]
+  }
+}

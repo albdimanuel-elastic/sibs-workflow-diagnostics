@@ -1,0 +1,96 @@
+version: "1"
+name: Defend CPU triage
+description: When a host reaches 90% CPU or more, ask the defend-cpu-triage agent whether Elastic Defend is the cause, request diagnostics only in that case, and open a Security case.
+enabled: true
+tags: ["defend", "cpu", "sibs"]
+
+triggers:
+  - type: alert
+
+steps:
+  - name: record_alert
+    type: elasticsearch.index
+    with:
+      index: sibs-defend-audit
+      id: "{{ execution.id }}-alert"
+      refresh: "true"
+      document:
+        "@timestamp": "{{ \"now\" | date: \"%Y-%m-%dT%H:%M:%SZ\" }}"
+        event:
+          action: alert
+          outcome: success
+          dataset: sibs.defend.audit
+        host:
+          name: "{{ event.alerts[0].host.name | default: 'unknown' }}"
+        rule:
+          name: "{{ event.rule.name | default: 'Host CPU at or above 90 percent' }}"
+        message: "Host CPU alert received."
+        sibs:
+          stage: alert
+          status: triggered
+          order: "1"
+          cause: ""
+          verdict: ""
+          diagnostics: ""
+          top_process: ""
+          agent_id: ""
+          execution_id: "{{ execution.id }}"
+          cpu:
+            max: "{{ event.alerts[0].max_cpu | default: '0' }}"
+            avg: "{{ event.alerts[0].avg_cpu | default: '0' }}"
+          case:
+            id: ""
+            title: ""
+  - name: record_triage
+    type: elasticsearch.index
+    with:
+      index: sibs-defend-audit
+      id: "{{ execution.id }}-triage"
+      refresh: "true"
+      document:
+        "@timestamp": "{{ \"now\" | date: \"%Y-%m-%dT%H:%M:%SZ\" }}"
+        event:
+          action: triage
+          outcome: success
+          dataset: sibs.defend.audit
+        host:
+          name: "{{ event.alerts[0].host.name | default: 'unknown' }}"
+        rule:
+          name: "{{ event.rule.name | default: 'Host CPU at or above 90 percent' }}"
+        message: "Triage started. The Defend CPU triage agent is investigating whether Elastic Defend is the cause."
+        sibs:
+          stage: triage
+          status: pending
+          order: "2"
+          cause: ""
+          verdict: ""
+          diagnostics: ""
+          top_process: ""
+          agent_id: ""
+          execution_id: "{{ execution.id }}"
+          cpu:
+            max: "{{ event.alerts[0].max_cpu | default: '0' }}"
+            avg: "{{ event.alerts[0].avg_cpu | default: '0' }}"
+          case:
+            id: ""
+            title: ""
+  - name: triage
+    type: ai.agent
+    agent-id: defend-cpu-triage
+    create-conversation: true
+    with:
+      message: |
+        You are in Elastic Security. Investigate this host CPU alert with the Elastic Defend CPU triage skill.
+        Follow the skill until you open exactly one case. Do not request diagnostics unless Elastic Defend is the cause.
+        Read the host from host.name, or from event.alerts[0].host.name when the alert is nested.
+        The alert fires when any host CPU sample in the lookback reaches 0.9. Read that value from max_cpu, or from event.alerts[0].max_cpu. avg_cpu is the average in the same window. Both are fractions: 0.9 means 90%.
+        Audit correlation id: {{ execution.id }}
+        The alert is already audited as triggered. Triage is pending until you finish. Record agent, action, case, and verdict with record_defend_audit. Send this correlation id as execution_id on every call.
+        Status values: agent is done, action is requested or not_requested, case is opened, verdict is true_positive or false_positive. Never send pending as a verdict. Never send unknown as a cause once you have decided.
+
+        <event>
+        {{ event | json }}
+        </event>
+        <inputs>
+        {{ inputs | json }}
+        </inputs>

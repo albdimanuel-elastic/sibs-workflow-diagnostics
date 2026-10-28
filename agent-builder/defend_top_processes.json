@@ -1,0 +1,15 @@
+{
+  "id": "defend_top_processes",
+  "type": "esql",
+  "description": "Returns who contributed the most CPU on a host over the last 15 minutes. cpu is the sum of process.cpu.pct, so it ranks contributors rather than one spike. On Linux the Elastic Defend process name is truncated to elastic-endpoin. Do not treat elastic-agent or elastic-otel-co as the EDR. Parameter host is the exact host.name.",
+  "tags": ["defend", "cpu", "sibs"],
+  "configuration": {
+    "query": "FROM metrics-system.process-* | WHERE @timestamp >= NOW() - 15 minutes AND host.name == ?host AND process.cpu.pct IS NOT NULL | STATS cpu = SUM(process.cpu.pct), max_cpu = MAX(process.cpu.pct), samples = COUNT(*) BY process.name | SORT cpu DESC | LIMIT 15",
+    "params": {
+      "host": {
+        "type": "string",
+        "description": "Exact host.name of the machine from the alert"
+      }
+    }
+  }
+}

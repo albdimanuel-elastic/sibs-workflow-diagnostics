@@ -1,0 +1,136 @@
+{
+  "title": "Defend CPU audit",
+  "description": "Audit trail from the host CPU alert through triage, the agent decision, the diagnostics action, the Security case, and the true or false positive verdict. Each stage has its own state.",
+  "time_range": {
+    "from": "now-24h",
+    "to": "now"
+  },
+  "refresh_interval": {
+    "pause": false,
+    "value": 10000
+  },
+  "panels": [
+    {
+      "type": "custom_content",
+      "id": "trail",
+      "grid": {
+        "x": 0,
+        "y": 0,
+        "w": 48,
+        "h": 12
+      },
+      "config": {
+        "title": "Trail",
+        "esql_query": [
+          "FROM sibs-defend-audit | WHERE @timestamp <= ?_tend AND @timestamp > ?_tstart | STATS alerts = COUNT(*) WHERE event.action == \"alert\", triages = COUNT(*) WHERE event.action == \"triage\", agents = COUNT(*) WHERE event.action == \"agent\", diagnostics = COUNT(*) WHERE sibs.diagnostics == \"requested\", cases = COUNT(*) WHERE event.action == \"case\", verdicts = COUNT(*) WHERE event.action == \"verdict\", true_positives = COUNT(*) WHERE sibs.verdict == \"true_positive\""
+        ],
+        "template": "<style>\n  .wrap { display: flex; flex-direction: column; gap: var(--cc-space-m); height: 100%; }\n  .kicker { font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--cc-color-primary); }\n  .title { font-size: 22px; font-weight: 650; letter-spacing: -0.02em; margin: 0; }\n  .lede { margin: 0; opacity: .8; font-size: 13px; }\n  .rail { display: flex; gap: var(--cc-space-s); align-items: stretch; }\n  .step { flex: 1; min-width: 0; background: var(--cc-color-surface); border: 1px solid var(--cc-color-border); border-radius: var(--cc-radius); padding: var(--cc-space-s) var(--cc-space-m); display: flex; flex-direction: column; gap: 2px; }\n  .step.on { border-color: var(--cc-vis-0); }\n  .num { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; opacity: .7; }\n  .count { font-size: 26px; font-weight: 650; line-height: 1.1; font-variant-numeric: tabular-nums; }\n  .name { font-size: 13px; font-weight: 600; }\n  .hint { font-size: 11px; opacity: .75;  }\n  .s1.on { box-shadow: inset 0 -3px 0 var(--cc-vis-3); }\n  .s2.on { box-shadow: inset 0 -3px 0 var(--cc-vis-1); }\n  .s3.on { box-shadow: inset 0 -3px 0 var(--cc-vis-0); }\n  .s4.on { box-shadow: inset 0 -3px 0 var(--cc-vis-4); }\n  .s5.on { box-shadow: inset 0 -3px 0 var(--cc-vis-2); }\n  .s6.on { box-shadow: inset 0 -3px 0 var(--cc-vis-5); }\n  .empty { margin: 0; font-size: 13px; opacity: .75; }\n</style>\n<div class=\"wrap\">\n  <div>\n    <div class=\"kicker\">Defend CPU audit</div>\n    <h2 class=\"title\">From the alert to the verdict</h2>\n    <p class=\"lede\">Alert is triggered or not triggered. Triage is done or pending. The case is opened or pending. The verdict is true or false positive.</p>\n  </div>\n  {% assign n_alert = 0 %}{% assign n_triage = 0 %}{% assign n_agent = 0 %}{% assign n_diag = 0 %}{% assign n_case = 0 %}{% assign n_verdict = 0 %}\n  {% if rows.size > 0 %}\n    {% assign n_alert = rows[0][\"alerts\"].value %}\n    {% assign n_triage = rows[0][\"triages\"].value %}\n    {% assign n_agent = rows[0][\"agents\"].value %}\n    {% assign n_diag = rows[0][\"diagnostics\"].value %}\n    {% assign n_case = rows[0][\"cases\"].value %}\n    {% assign n_verdict = rows[0][\"verdicts\"].value %}{% assign n_tp = rows[0][\"true_positives\"].value %}\n  {% endif %}\n  {% if n_alert > 0 %}{% assign alert_state = \"triggered\" %}{% else %}{% assign alert_state = \"not triggered\" %}{% endif %}\n  {% if n_verdict > 0 or n_agent > 0 %}{% assign triage_state = \"done\" %}{% else %}{% assign triage_state = \"not done\" %}{% endif %}\n  {% if n_diag > 0 %}{% assign action_state = \"done\" %}{% else %}{% assign action_state = \"not done\" %}{% endif %}\n  {% if n_case > 0 %}{% assign case_state = \"Open\" %}{% else %}{% assign case_state = \"\" %}{% endif %}\n  {% if n_tp > 0 %}{% assign verdict_state = \"true positive\" %}{% else %}{% assign verdict_state = \"not confirmed\" %}{% endif %}\n  {% if rows.size == 0 %}<p class=\"empty\">No audit events in this time range. The next host CPU alert writes the trail.</p>{% endif %}\n  <div class=\"rail\">\n    <div class=\"step s1 {% if n_alert > 0 %}on{% endif %}\"><span class=\"num\">01</span><span class=\"count\">{{ n_alert }}</span><span class=\"name\">Alert</span><span class=\"hint\">{{ alert_state }}</span></div>\n    <div class=\"step s2 {% if n_triage > 0 %}on{% endif %}\"><span class=\"num\">02</span><span class=\"count\">{{ n_triage }}</span><span class=\"name\">Triage</span><span class=\"hint\">{{ triage_state }}</span></div>\n    <div class=\"step s3 {% if n_agent > 0 %}on{% endif %}\"><span class=\"num\">03</span><span class=\"count\">{{ n_agent }}</span><span class=\"name\">Agent</span><span class=\"hint\">Cause decided</span></div>\n    <div class=\"step s4 {% if n_diag > 0 %}on{% endif %}\"><span class=\"num\">04</span><span class=\"count\">{{ n_diag }}</span><span class=\"name\">Action</span><span class=\"hint\">{{ action_state }}</span></div>\n    <div class=\"step s5 {% if n_case > 0 %}on{% endif %}\"><span class=\"num\">05</span><span class=\"count\">{{ n_case }}</span><span class=\"name\">Case</span><span class=\"hint\">{{ case_state }}</span></div>\n    <div class=\"step s6 {% if n_verdict > 0 %}on{% endif %}\"><span class=\"num\">06</span><span class=\"count\">{{ n_verdict }}</span><span class=\"name\">Verdict</span><span class=\"hint\">{{ verdict_state }}</span></div>\n  </div>\n</div>"
+      }
+    },
+    {
+      "type": "custom_content",
+      "id": "kpis",
+      "grid": {
+        "x": 0,
+        "y": 12,
+        "w": 48,
+        "h": 8
+      },
+      "config": {
+        "title": "Outcomes",
+        "esql_query": [
+          "FROM sibs-defend-audit | WHERE @timestamp <= ?_tend AND @timestamp > ?_tstart | STATS alerts = COUNT(*) WHERE event.action == \"alert\", true_positives = COUNT(*) WHERE sibs.verdict == \"true_positive\", defend = COUNT(*) WHERE event.action == \"verdict\" AND sibs.cause == \"elastic_defend\", diagnostics = COUNT(*) WHERE event.action == \"action\" AND sibs.diagnostics == \"requested\""
+        ],
+        "template": "<style>\n  .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--cc-space-s); height: 100%; }\n  .tile { background: var(--cc-color-surface); border: 1px solid var(--cc-color-border); border-radius: var(--cc-radius); padding: var(--cc-space-m); display: flex; flex-direction: column; justify-content: space-between; min-height: 0; }\n  .label { font-size: 12px; letter-spacing: .06em; text-transform: uppercase; opacity: .7; }\n  .value { font-size: 40px; font-weight: 650; line-height: 1; font-variant-numeric: tabular-nums; letter-spacing: -0.03em; }\n  .note { font-size: 12px; opacity: .7; }\n  .a { box-shadow: inset 3px 0 0 var(--cc-vis-3); }\n  .b { box-shadow: inset 3px 0 0 var(--cc-vis-2); }\n  .c { box-shadow: inset 3px 0 0 var(--cc-vis-0); }\n  .d { box-shadow: inset 3px 0 0 var(--cc-vis-4); }\n</style>\n{% assign alerts = 0 %}{% assign tp = 0 %}{% assign defend = 0 %}{% assign diag = 0 %}\n{% if rows.size > 0 %}\n  {% assign alerts = rows[0][\"alerts\"].value %}\n  {% assign tp = rows[0][\"true_positives\"].value %}\n  {% assign defend = rows[0][\"defend\"].value %}\n  {% assign diag = rows[0][\"diagnostics\"].value %}\n{% endif %}\n<div class=\"grid\">\n  <div class=\"tile a\"><span class=\"label\">Alerts</span><span class=\"value\">{{ alerts }}</span><span class=\"note\">Host CPU at or above 90%</span></div>\n  <div class=\"tile b\"><span class=\"label\">True positives</span><span class=\"value\">{{ tp }}</span><span class=\"note\">Host really crossed the line</span></div>\n  <div class=\"tile c\"><span class=\"label\">Defend is the cause</span><span class=\"value\">{{ defend }}</span><span class=\"note\">Verdicts attributed to Elastic Defend</span></div>\n  <div class=\"tile d\"><span class=\"label\">Diagnostics</span><span class=\"value\">{{ diag }}</span><span class=\"note\">Fleet bundles requested</span></div>\n</div>"
+      }
+    },
+    {
+      "type": "links",
+      "id": "case-links",
+      "grid": {
+        "x": 0,
+        "y": 20,
+        "w": 18,
+        "h": 10
+      },
+      "config": {
+        "title": "Open cases",
+        "links": [
+          {
+            "type": "externalLink",
+            "label": "Security cases",
+            "destination": "/app/security/cases"
+          }
+        ]
+      }
+    },
+    {
+      "type": "custom_content",
+      "id": "cases",
+      "grid": {
+        "x": 18,
+        "y": 20,
+        "w": 30,
+        "h": 10
+      },
+      "config": {
+        "title": "Cases",
+        "esql_query": [
+          "FROM sibs-defend-audit | WHERE @timestamp <= ?_tend AND @timestamp > ?_tstart AND event.action == \"case\" | SORT @timestamp DESC | LIMIT 4 | KEEP host.name, sibs.case.id, sibs.case.title, sibs.cause"
+        ],
+        "template": "<style>\n  .list { display: flex; flex-direction: column; gap: var(--cc-space-s); }\n  .card { display: flex; justify-content: space-between; gap: var(--cc-space-m); align-items: center; background: var(--cc-color-surface); border: 1px solid var(--cc-color-border); border-radius: var(--cc-radius); padding: var(--cc-space-m); }\n  .name { font-size: 16px; font-weight: 650; margin: 0; }\n  .meta { margin: 4px 0 0; font-size: 12px; opacity: .75; }\n  .badge { font-size: 11px; letter-spacing: .04em; text-transform: uppercase; border-radius: var(--cc-radius-s); padding: 4px 8px; color: var(--cc-color-background); }\n  .edr { background: var(--cc-vis-0); }\n  .other { background: var(--cc-vis-4); }\n  .empty { opacity: .75; margin: 0; }\n</style>\n{% if rows.size == 0 %}<p class=\"empty\">No open case in this time range.</p>{% endif %}\n<div class=\"list\">\n{% for row in rows %}\n  <div class=\"card\">\n    <div>\n      <p class=\"name\">{{ row[\"sibs.case.title\"].value }}</p>\n      <p class=\"meta\">{{ row[\"host.name\"].value }}</p>\n    </div>\n    {% if row[\"sibs.cause\"].value == \"elastic_defend\" %}\n      <span class=\"badge edr\">Elastic Defend</span>\n    {% elsif row[\"sibs.cause\"].value == \"not_elastic_defend\" %}\n      <span class=\"badge other\">Not Elastic Defend</span>\n    {% endif %}\n  </div>\n{% endfor %}\n</div>"
+      }
+    },
+    {
+      "type": "custom_content",
+      "id": "verdicts",
+      "grid": {
+        "x": 0,
+        "y": 30,
+        "w": 30,
+        "h": 14
+      },
+      "config": {
+        "title": "Verdicts",
+        "esql_query": [
+          "FROM sibs-defend-audit | WHERE @timestamp <= ?_tend AND @timestamp > ?_tstart AND event.action == \"verdict\" | SORT @timestamp DESC | LIMIT 6 | KEEP host.name, sibs.verdict, sibs.cause, sibs.diagnostics, sibs.cpu.max, sibs.top_process, sibs.case.title, message"
+        ],
+        "template": "<style>\n  .list { display: flex; flex-direction: column; gap: var(--cc-space-s); }\n  .card { background: var(--cc-color-surface); border: 1px solid var(--cc-color-border); border-radius: var(--cc-radius); padding: var(--cc-space-s) var(--cc-space-m); display: grid; grid-template-columns: 1fr auto; gap: var(--cc-space-s); }\n  .host { font-weight: 650; font-size: 15px; }\n  .meta { font-size: 12px; opacity: .75; margin-top: 2px; }\n  .badges { display: flex; gap: var(--cc-space-xs); align-items: flex-start; flex-wrap: wrap; justify-content: flex-end; }\n  .badge { font-size: 11px; letter-spacing: .04em; text-transform: uppercase; border-radius: var(--cc-radius-s); padding: 3px 8px; border: 1px solid var(--cc-color-border); }\n  .tp { background: var(--cc-vis-2); color: var(--cc-color-background); border-color: transparent; }\n  .fp { background: var(--cc-color-warning); color: var(--cc-color-background); border-color: transparent; }\n  .defend { background: var(--cc-vis-0); color: var(--cc-color-background); border-color: transparent; }\n  .other { background: var(--cc-color-surface); }\n  .empty { opacity: .75; margin: 0; }\n</style>\n{% if rows.size == 0 %}<p class=\"empty\">No verdict yet. It is written after the case.</p>{% endif %}\n<div class=\"list\">\n{% for row in rows %}\n  <div class=\"card\">\n    <div>\n      <div class=\"host\">{{ row[\"host.name\"].value }}</div>\n      <div class=\"meta\">{{ row[\"sibs.top_process\"].value }} \u00b7 max {{ row[\"sibs.cpu.max\"].value | times: 100 | round: 0 }}% \u00b7 {{ row[\"sibs.case.title\"].value }}</div>\n    </div>\n    <div class=\"badges\">\n      <span class=\"badge {% if row[\"sibs.verdict\"].value == \"true_positive\" %}tp{% elsif row[\"sibs.verdict\"].value == \"false_positive\" %}fp{% else %}other{% endif %}\">{{ row[\"sibs.verdict\"].value | replace: \"_\", \" \" }}</span>\n      <span class=\"badge {% if row[\"sibs.cause\"].value == \"elastic_defend\" %}defend{% else %}other{% endif %}\">{{ row[\"sibs.cause\"].value | replace: \"_\", \" \" }}</span>\n      <span class=\"badge other\">{{ row[\"sibs.diagnostics\"].value | replace: \"_\", \" \" }}</span>\n    </div>\n  </div>\n{% endfor %}\n</div>"
+      }
+    },
+    {
+      "type": "custom_content",
+      "id": "cause",
+      "grid": {
+        "x": 30,
+        "y": 30,
+        "w": 18,
+        "h": 14
+      },
+      "config": {
+        "title": "Cause",
+        "esql_query": [
+          "FROM sibs-defend-audit | WHERE @timestamp <= ?_tend AND @timestamp > ?_tstart AND event.action == \"verdict\" | STATS incidents = COUNT(*) BY sibs.cause | SORT incidents DESC"
+        ],
+        "template": "<style>\n  .rows { display: flex; flex-direction: column; gap: var(--cc-space-m); }\n  .row { display: grid; grid-template-columns: 140px 1fr 36px; gap: var(--cc-space-s); align-items: center; }\n  .label { font-size: 13px; font-weight: 600; }\n  .track { height: var(--cc-space-l); background: var(--cc-color-surface); border-radius: var(--cc-radius-s); overflow: hidden; border: 1px solid var(--cc-color-border); }\n  .bar { height: 100%; background: var(--cc-vis-0); }\n  .bar.other { background: var(--cc-vis-4); }\n  .bar.unk { background: var(--cc-vis-7); }\n  .n { font-variant-numeric: tabular-nums; font-weight: 650; text-align: right; }\n  .empty { opacity: .75; margin: 0; }\n</style>\n{% if rows.size == 0 %}<p class=\"empty\">Cause appears when a verdict is recorded.</p>{% endif %}\n<div class=\"rows\">\n{% for row in rows %}\n  <div class=\"row\">\n    <span class=\"label\">{{ row[\"sibs.cause\"].value | replace: \"_\", \" \" }}</span>\n    <div class=\"track\"><div class=\"bar {% if row[\"sibs.cause\"].value == \"not_elastic_defend\" %}other{% elsif row[\"sibs.cause\"].value != \"elastic_defend\" %}unk{% endif %}\" style=\"width: {{ row[\"incidents\"].pct }}%\"></div></div>\n    <span class=\"n\">{{ row[\"incidents\"].value }}</span>\n  </div>\n{% endfor %}\n</div>"
+      }
+    },
+    {
+      "type": "custom_content",
+      "id": "log",
+      "grid": {
+        "x": 0,
+        "y": 44,
+        "w": 48,
+        "h": 18
+      },
+      "config": {
+        "title": "Audit log",
+        "esql_query": [
+          "FROM sibs-defend-audit | WHERE @timestamp <= ?_tend AND @timestamp > ?_tstart | SORT @timestamp DESC | LIMIT 18 | KEEP @timestamp, event.action, host.name, message, sibs.cause, sibs.verdict, sibs.status, sibs.diagnostics, sibs.case.id, sibs.execution_id"
+        ],
+        "template": "<style>\n  .table { width: 100%; border-collapse: collapse; font-size: 13px; }\n  .table th { text-align: left; font-size: 11px; letter-spacing: .06em; text-transform: uppercase; opacity: .65; font-weight: 600; padding: 0 var(--cc-space-s) var(--cc-space-xs); }\n  .table td { padding: var(--cc-space-xs) var(--cc-space-s); border-top: 1px solid var(--cc-color-border); vertical-align: top; }\n  .stage { font-weight: 650; text-transform: uppercase; font-size: 11px; letter-spacing: .04em; }\n  .status { font-weight: 650;  }\n  .msg { opacity: .85; }\n  .empty { opacity: .75; margin: 0; }\n  a { color: var(--cc-color-primary); }\n</style>\n{% if rows.size == 0 %}\n  <p class=\"empty\">The trail appears here after the next alert. Host CPU for the same machines is on <a href=\"/app/dashboards#/view/elastic-agent-host-cpu\">Elastic Agent host CPU</a>.</p>\n{% else %}\n<table class=\"table\">\n  <thead><tr><th>When</th><th>Stage</th><th>Host</th><th>What happened</th><th>Cause</th><th>Status</th></tr></thead>\n  <tbody>\n  {% for row in rows %}\n    {% assign stage = row[\"event.action\"].value %}\n    {% assign exec = row[\"sibs.execution_id\"].value %}\n    {% assign cause = row[\"sibs.cause\"].value %}\n    {% assign finished = false %}\n    {% for other in rows %}\n      {% if other[\"sibs.execution_id\"].value == exec %}\n        {% if other[\"event.action\"].value == \"agent\" or other[\"event.action\"].value == \"case\" or other[\"event.action\"].value == \"verdict\" %}\n          {% assign finished = true %}\n        {% endif %}\n        {% if cause == \"unknown\" or cause == \"\" %}\n          {% assign other_cause = other[\"sibs.cause\"].value %}\n          {% if other_cause == \"elastic_defend\" or other_cause == \"not_elastic_defend\" %}\n            {% assign cause = other_cause %}\n          {% endif %}\n        {% endif %}\n      {% endif %}\n    {% endfor %}\n    {% if stage == \"alert\" %}\n      {% assign status = \"triggered\" %}\n    {% elsif stage == \"triage\" %}\n      {% if finished %}{% assign status = \"done\" %}{% else %}{% assign status = \"not done\" %}{% endif %}\n    {% elsif stage == \"action\" %}\n      {% if row[\"sibs.diagnostics\"].value == \"requested\" %}{% assign status = \"done\" %}{% else %}{% assign status = \"not done\" %}{% endif %}\n    {% elsif stage == \"case\" %}\n      {% if row[\"sibs.case.id\"].value != \"\" %}{% assign status = \"Open\" %}{% else %}{% assign status = \"\" %}{% endif %}\n    {% elsif stage == \"verdict\" %}\n      {% if row[\"sibs.verdict\"].value == \"true_positive\" %}{% assign status = \"true positive\" %}{% else %}{% assign status = \"not confirmed\" %}{% endif %}\n    {% else %}\n      {% if finished %}{% assign status = \"done\" %}{% else %}{% assign status = \"not done\" %}{% endif %}\n    {% endif %}\n    <tr>\n      <td>{{ row[\"@timestamp\"].value | date: \"%H:%M:%S\" }}</td>\n      <td class=\"stage\">{{ stage }}</td>\n      <td>{{ row[\"host.name\"].value }}</td>\n      <td class=\"msg\">{{ row[\"message\"].value }}</td>\n      <td>{% if cause == \"elastic_defend\" or cause == \"not_elastic_defend\" %}{{ cause | replace: \"_\", \" \" }}{% endif %}</td>\n      <td class=\"status\">{{ status }}</td>\n    </tr>\n  {% endfor %}\n  </tbody>\n</table>\n{% endif %}"
+      }
+    }
+  ]
+}

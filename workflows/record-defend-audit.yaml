@@ -1,0 +1,93 @@
+version: "1"
+name: Record Defend audit
+description: Writes one audit event for the Defend CPU trail. The triage workflow records alert and triage. The agent records agent, action, case, and verdict.
+enabled: true
+tags: ["defend", "audit", "sibs"]
+
+triggers:
+  - type: manual
+    inputs:
+      properties:
+        stage:
+          type: string
+          description: One of agent, action, case, or verdict.
+        execution_id:
+          type: string
+          description: Correlation id from the triage workflow message. Send the same value on every call for this alert.
+        stage_order:
+          type: string
+          description: 3 for agent, 4 for action, 5 for case, 6 for verdict.
+        host_name:
+          type: string
+          description: Host the alert is about.
+        message:
+          type: string
+          description: One sentence describing what happened at this stage.
+        status:
+          type: string
+          description: Stage state. agent is done. action is requested or not_requested. case is opened, or pending if the case was not created. verdict is true_positive or false_positive. Never pending.
+        cause:
+          type: string
+          description: elastic_defend or not_elastic_defend. Send it on every call after you have decided. Do not send unknown.
+        verdict:
+          type: string
+          description: Only on the verdict stage. true_positive when host CPU is still at or above 0.9, false_positive when both average and max are below 0.9. Leave empty on every other stage. Never send pending.
+        diagnostics:
+          type: string
+          description: requested, not_requested, or unknown.
+        case_id:
+          type: string
+          description: Security case id, or empty when the case does not exist yet.
+        case_title:
+          type: string
+          description: Security case title, or empty when the case does not exist yet.
+        rule_name:
+          type: string
+          description: Detection rule name.
+        top_process:
+          type: string
+          description: Process with the highest CPU sum.
+        agent_id:
+          type: string
+          description: Fleet agent id, or empty.
+        max_cpu:
+          type: string
+          description: Host max CPU as a fraction. 0.9 means 90 percent. Never leave this blank; use the value from defend_host_cpu.
+        avg_cpu:
+          type: string
+          description: Host average CPU as a fraction. Never leave this blank; use the value from defend_host_cpu.
+
+steps:
+  - name: index_audit
+    type: elasticsearch.index
+    with:
+      index: sibs-defend-audit
+      id: "{{ inputs.execution_id | default: execution.id }}-{{ inputs.stage | default: 'event' }}"
+      refresh: "true"
+      document:
+        "@timestamp": "{{ \"now\" | date: \"%Y-%m-%dT%H:%M:%SZ\" }}"
+        event:
+          action: "{{ inputs.stage | default: 'agent' }}"
+          outcome: success
+          dataset: sibs.defend.audit
+        host:
+          name: "{{ inputs.host_name | default: 'unknown' }}"
+        rule:
+          name: "{{ inputs.rule_name | default: 'Host CPU at or above 90 percent' }}"
+        message: "{{ inputs.message | default: '' }}"
+        sibs:
+          stage: "{{ inputs.stage | default: 'agent' }}"
+          status: "{{ inputs.status | default: '' }}"
+          order: "{{ inputs.stage_order | default: '0' }}"
+          cause: "{{ inputs.cause | default: '' }}"
+          verdict: "{{ inputs.verdict | default: '' }}"
+          diagnostics: "{{ inputs.diagnostics | default: 'unknown' }}"
+          top_process: "{{ inputs.top_process | default: '' }}"
+          agent_id: "{{ inputs.agent_id | default: '' }}"
+          execution_id: "{{ inputs.execution_id | default: execution.id }}"
+          cpu:
+            max: "{{ inputs.max_cpu | default: '0' }}"
+            avg: "{{ inputs.avg_cpu | default: '0' }}"
+          case:
+            id: "{{ inputs.case_id | default: '' }}"
+            title: "{{ inputs.case_title | default: '' }}"

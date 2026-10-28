@@ -1,0 +1,9 @@
+{
+  "id": "request_defend_diagnostics",
+  "type": "workflow",
+  "description": "Asks Fleet for an Elastic Agent diagnostics bundle, including extra CPU metrics. Use it only after you have decided Elastic Defend is the cause and you have its agent.id. The parameter is agent_id.",
+  "tags": ["defend", "diagnostics", "sibs"],
+  "configuration": {
+    "workflow_id": "request-defend-diagnostics"
+  }
+}

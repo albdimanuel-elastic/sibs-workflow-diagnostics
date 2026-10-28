@@ -1,0 +1,8 @@
+.env
+.elasticrc.yml
+.ssh/
+.discover/
+*.zip
+diagnostics/
+HOW-TO-DEMO.md
+.DS_Store

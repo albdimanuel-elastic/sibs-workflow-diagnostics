@@ -1,0 +1,54 @@
+{
+  "dynamic": "strict",
+  "properties": {
+    "@timestamp": { "type": "date" },
+    "event": {
+      "properties": {
+        "action": { "type": "keyword" },
+        "outcome": { "type": "keyword" },
+        "dataset": { "type": "keyword" }
+      }
+    },
+    "host": {
+      "properties": {
+        "name": { "type": "keyword" }
+      }
+    },
+    "rule": {
+      "properties": {
+        "name": { "type": "keyword" }
+      }
+    },
+    "message": {
+      "type": "text",
+      "fields": {
+        "keyword": { "type": "keyword", "ignore_above": 1024 }
+      }
+    },
+    "sibs": {
+      "properties": {
+        "stage": { "type": "keyword" },
+        "status": { "type": "keyword" },
+        "order": { "type": "integer", "coerce": true },
+        "cause": { "type": "keyword" },
+        "verdict": { "type": "keyword" },
+        "diagnostics": { "type": "keyword" },
+        "top_process": { "type": "keyword" },
+        "agent_id": { "type": "keyword" },
+        "execution_id": { "type": "keyword" },
+        "cpu": {
+          "properties": {
+            "max": { "type": "float", "coerce": true },
+            "avg": { "type": "float", "coerce": true }
+          }
+        },
+        "case": {
+          "properties": {
+            "id": { "type": "keyword" },
+            "title": { "type": "keyword", "ignore_above": 512 }
+          }
+        }
+      }
+    }
+  }
+}

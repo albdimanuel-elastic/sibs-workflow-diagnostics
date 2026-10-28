@@ -1,0 +1,23 @@
+version: "1"
+name: Request Elastic Agent diagnostics
+description: Asks Fleet for an Elastic Agent diagnostics bundle with extra CPU metrics. Run this only when Elastic Defend is the cause of the high host CPU.
+enabled: true
+tags: ["defend", "diagnostics", "sibs"]
+
+triggers:
+  - type: manual
+    inputs:
+      properties:
+        agent_id:
+          type: string
+          description: Fleet Elastic Agent id to collect diagnostics from
+
+steps:
+  - name: request_diagnostics
+    type: kibana.request
+    with:
+      method: POST
+      path: "/api/fleet/agents/{{ inputs.agent_id }}/request_diagnostics"
+      body:
+        additional_metrics:
+          - CPU

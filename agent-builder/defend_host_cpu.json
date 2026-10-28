@@ -1,0 +1,15 @@
+{
+  "id": "defend_host_cpu",
+  "type": "esql",
+  "description": "Returns the host average and max CPU over the last 15 minutes. Values are fractions: 0.9 means 90%. Use it to check whether the host in a CPU alert is actually at or above 90%. Parameter host is the exact host.name.",
+  "tags": ["defend", "cpu", "sibs"],
+  "configuration": {
+    "query": "FROM metrics-system.cpu-* | WHERE @timestamp >= NOW() - 15 minutes AND host.name == ?host | STATS avg_cpu = AVG(system.cpu.total.norm.pct), max_cpu = MAX(system.cpu.total.norm.pct), samples = COUNT(*) BY host.name | LIMIT 5",
+    "params": {
+      "host": {
+        "type": "string",
+        "description": "Exact host.name of the machine from the alert"
+      }
+    }
+  }
+}

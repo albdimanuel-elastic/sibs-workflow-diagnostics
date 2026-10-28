@@ -1,0 +1,19 @@
+{
+  "dynamic": "strict",
+  "_meta": {
+    "description": "Security incident runbooks. Each document is one procedure: the symptoms of an incident and the ordered steps to take. Use this for phishing email, ransomware file encryption, a compromised user account, an internet-facing service on a vulnerable version, or living-off-the-land execution from a document or browser. Do not use it for Elastic Defend CPU triage, Fleet diagnostics, or for changing systems."
+  },
+  "properties": {
+    "runbook_id": { "type": "keyword" },
+    "title": {
+      "type": "text",
+      "fields": {
+        "keyword": { "type": "keyword", "ignore_above": 256 }
+      }
+    },
+    "category": { "type": "keyword" },
+    "symptoms": { "type": "text" },
+    "steps": { "type": "text" },
+    "body": { "type": "semantic_text" }
+  }
+}

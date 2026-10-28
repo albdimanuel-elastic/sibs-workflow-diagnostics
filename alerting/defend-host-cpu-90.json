@@ -1,0 +1,35 @@
+{
+  "id": "defend-host-cpu-90",
+  "kind": "alert",
+  "metadata": {
+    "name": "Host CPU at or above 90 percent",
+    "description": "Fires when any CPU sample for a host reaches 0.9. Checked every minute over a 20 minute lookback, because these metrics take several minutes to arrive. 0.9 means 90 percent.",
+    "tags": [
+      "defend-cpu",
+      "sibs",
+      "notify-defend-host-cpu-90"
+    ],
+    "routing_tags": [
+      "notify-defend-host-cpu-90"
+    ]
+  },
+  "schedule": {
+    "every": "1m",
+    "lookback": "20m"
+  },
+  "grouping": {
+    "fields": [
+      "host.name"
+    ]
+  },
+  "query": {
+    "base": "FROM metrics-system.cpu-* | STATS avg_cpu = AVG(system.cpu.total.norm.pct), max_cpu = MAX(system.cpu.total.norm.pct) BY host.name | WHERE max_cpu >= 0.9 | KEEP host.name, avg_cpu, max_cpu"
+  },
+  "time_field": "@timestamp",
+  "recovery": {
+    "strategy": "no_breach"
+  },
+  "no_data": {
+    "strategy": "ignore"
+  }
+}

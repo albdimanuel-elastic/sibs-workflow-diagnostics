@@ -1,0 +1,151 @@
+{
+  "title": "Elastic Agent host CPU",
+  "description": "CPU of the Elastic Agent hosts, the 90 percent line, and the processes behind the spike.",
+  "time_range": { "from": "now-30m", "to": "now" },
+  "refresh_interval": { "pause": false, "value": 10000 },
+  "panels": [
+    {
+      "type": "vis",
+      "id": "cpu-now",
+      "grid": { "x": 0, "y": 0, "w": 16, "h": 6 },
+      "config": {
+        "title": "CPU now",
+        "type": "metric",
+        "data_source": {
+          "type": "esql",
+          "query": "FROM metrics-system.cpu-* | WHERE @timestamp <= ?_tend AND @timestamp > ?_tstart | SORT @timestamp DESC | LIMIT 1 | EVAL cpu = ROUND(system.cpu.total.norm.pct * 100, 1) | KEEP cpu"
+        },
+        "metrics": [{ "type": "primary", "column": "cpu", "label": "CPU %" }]
+      }
+    },
+    {
+      "type": "vis",
+      "id": "cpu-peak",
+      "grid": { "x": 16, "y": 0, "w": 16, "h": 6 },
+      "config": {
+        "title": "Peak CPU",
+        "type": "metric",
+        "data_source": {
+          "type": "esql",
+          "query": "FROM metrics-system.cpu-* | WHERE @timestamp <= ?_tend AND @timestamp > ?_tstart | STATS cpu = ROUND(MAX(system.cpu.total.norm.pct) * 100, 1)"
+        },
+        "metrics": [{ "type": "primary", "column": "cpu", "label": "Peak %" }]
+      }
+    },
+    {
+      "type": "vis",
+      "id": "top-process",
+      "grid": { "x": 32, "y": 0, "w": 16, "h": 6 },
+      "config": {
+        "title": "Top process",
+        "type": "metric",
+        "data_source": {
+          "type": "esql",
+          "query": "FROM metrics-system.process-* | WHERE @timestamp <= ?_tend AND @timestamp > ?_tstart AND process.cpu.pct IS NOT NULL | STATS sample_cpu = SUM(process.cpu.pct) BY process.name, @timestamp | STATS cpu = MAX(sample_cpu) BY process.name | SORT cpu DESC | LIMIT 1 | KEEP process.name"
+        },
+        "metrics": [{ "type": "primary", "column": "process.name", "label": "Process" }]
+      }
+    },
+    {
+      "type": "vis",
+      "id": "host-cpu",
+      "grid": { "x": 0, "y": 6, "w": 48, "h": 14 },
+      "config": {
+        "title": "Host CPU",
+        "type": "xy",
+        "axis": {
+          "x": { "title": { "visible": false }, "scale": "temporal", "domain": { "type": "fit", "rounding": false } },
+          "y": { "title": { "visible": true, "text": "CPU %" } }
+        },
+        "layers": [
+          {
+            "type": "line",
+            "data_source": {
+              "type": "esql",
+              "query": "FROM metrics-system.cpu-* | WHERE @timestamp <= ?_tend AND @timestamp > ?_tstart | STATS cpu = ROUND(MAX(system.cpu.total.norm.pct) * 100, 1) BY BUCKET(@timestamp, 75, ?_tstart, ?_tend), host.name"
+            },
+            "x": { "column": "BUCKET(@timestamp, 75, ?_tstart, ?_tend)", "label": "@timestamp" },
+            "y": [{ "column": "cpu", "label": "CPU %" }],
+            "breakdown_by": { "column": "host.name" }
+          },
+          {
+            "type": "line",
+            "data_source": {
+              "type": "esql",
+              "query": "FROM metrics-system.cpu-* | WHERE @timestamp <= ?_tend AND @timestamp > ?_tstart | STATS samples = COUNT() BY BUCKET(@timestamp, 75, ?_tstart, ?_tend) | EVAL alert_line = 90"
+            },
+            "x": { "column": "BUCKET(@timestamp, 75, ?_tstart, ?_tend)", "label": "@timestamp" },
+            "y": [{ "column": "alert_line", "label": "90%" }]
+          }
+        ]
+      }
+    },
+    {
+      "type": "vis",
+      "id": "process-cpu",
+      "grid": { "x": 0, "y": 20, "w": 28, "h": 14 },
+      "config": {
+        "title": "Process CPU",
+        "type": "xy",
+        "axis": {
+          "x": { "title": { "visible": false }, "scale": "temporal", "domain": { "type": "fit", "rounding": false } },
+          "y": { "title": { "visible": true, "text": "CPU % of the machine" } }
+        },
+        "layers": [
+          {
+            "type": "line",
+            "data_source": {
+              "type": "esql",
+              "query": "FROM metrics-system.process-* | WHERE @timestamp <= ?_tend AND @timestamp > ?_tstart AND process.cpu.pct IS NOT NULL | STATS sample_cpu = SUM(process.cpu.pct) BY process.name, @timestamp | STATS cpu = ROUND(MAX(sample_cpu) * 100, 1) BY BUCKET(@timestamp, 40, ?_tstart, ?_tend), process.name | WHERE cpu >= 5"
+            },
+            "x": { "column": "BUCKET(@timestamp, 40, ?_tstart, ?_tend)", "label": "@timestamp" },
+            "y": [{ "column": "cpu", "label": "CPU % of the machine" }],
+            "breakdown_by": { "column": "process.name" }
+          }
+        ]
+      }
+    },
+    {
+      "type": "vis",
+      "id": "top-processes",
+      "grid": { "x": 28, "y": 20, "w": 20, "h": 14 },
+      "config": {
+        "title": "Top processes",
+        "type": "xy",
+        "axis": {
+          "x": { "title": { "visible": false } },
+          "y": { "title": { "visible": false } }
+        },
+        "layers": [
+          {
+            "type": "bar_horizontal",
+            "data_source": {
+              "type": "esql",
+              "query": "FROM metrics-system.process-* | WHERE @timestamp <= ?_tend AND @timestamp > ?_tstart AND process.cpu.pct IS NOT NULL | STATS sample_cpu = SUM(process.cpu.pct) BY process.name, @timestamp | STATS cpu = ROUND(MAX(sample_cpu) * 100, 1) BY process.name | SORT cpu DESC | LIMIT 8"
+            },
+            "x": { "column": "process.name", "label": "Process" },
+            "y": [{ "column": "cpu", "label": "Peak % of the machine" }]
+          }
+        ]
+      }
+    },
+    {
+      "type": "vis",
+      "id": "process-table",
+      "grid": { "x": 0, "y": 34, "w": 48, "h": 12 },
+      "config": {
+        "title": "Processes in the spike",
+        "type": "data_table",
+        "data_source": {
+          "type": "esql",
+          "query": "FROM metrics-system.process-* | WHERE @timestamp <= ?_tend AND @timestamp > ?_tstart AND process.cpu.pct IS NOT NULL | STATS sample_cpu = SUM(process.cpu.pct) BY host.name, process.name, @timestamp | STATS cpu = ROUND(MAX(sample_cpu) * 100, 1), samples = COUNT(*) BY host.name, process.name | WHERE cpu >= 1 | SORT cpu DESC | LIMIT 12"
+        },
+        "rows": [{ "column": "host.name" }, { "column": "process.name" }],
+        "metrics": [
+          { "column": "cpu", "label": "Peak % of the machine" },
+          { "column": "samples", "label": "Samples" }
+        ]
+      }
+    }
+  ]
+}

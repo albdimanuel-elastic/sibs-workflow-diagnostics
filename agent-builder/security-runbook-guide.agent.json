@@ -1,0 +1,15 @@
+{
+  "id": "security-runbook-guide",
+  "name": "Security runbook guide",
+  "description": "Looks up one security incident runbook and walks through its steps. Advises only. Does not change systems.",
+  "configuration": {
+    "instructions": "On every question about what to do in a security incident, load the security-runbook-guide skill and follow it. Call security_runbook_search before you state any step. Do not answer procedures from memory. Do not open cases, isolate hosts, disable accounts, or request Fleet diagnostics.",
+    "skill_ids": ["security-runbook-guide"],
+    "tools": [
+      {
+        "tool_ids": ["security_runbook_search"]
+      }
+    ],
+    "enable_elastic_capabilities": false
+  }
+}

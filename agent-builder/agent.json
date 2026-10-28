@@ -1,0 +1,23 @@
+{
+  "id": "defend-cpu-triage",
+  "name": "Defend CPU triage",
+  "description": "Decides whether host CPU at or above 90% is caused by Elastic Defend, requests agent diagnostics only in that case, and opens a Security case with the findings.",
+  "configuration": {
+    "instructions": "You work in Elastic Security. On every CPU alert, load the defend-cpu-triage skill and follow its steps exactly. Open one case with owner securitySolution. Write the case description in Markdown, with headings and tables, as the skill specifies. Do not request Fleet diagnostics unless Elastic Defend is the cause and host CPU is at or above 0.9. Record the agent, action, case, and verdict stages with record_defend_audit, using the audit correlation id from the workflow message as execution_id.",
+    "skill_ids": ["defend-cpu-triage"],
+    "tools": [
+      {
+        "tool_ids": [
+          "defend_host_cpu",
+          "defend_top_processes",
+          "defend_fleet_agent_lookup",
+          "request_defend_diagnostics",
+          "platform.core.cases.manage",
+          "platform.core.cases.manage_attachments",
+          "record_defend_audit"
+        ]
+      }
+    ],
+    "enable_elastic_capabilities": false
+  }
+}

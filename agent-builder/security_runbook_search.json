@@ -1,0 +1,11 @@
+{
+  "id": "security_runbook_search",
+  "type": "index_search",
+  "description": "Looks up the runbook for a security incident. Use this when the user searches for an incident runbook, asks for the procedure for an incident, or asks what to do about an incident. For example: 'look up the runbook for this incident' or 'what is the procedure for this incident'. Do not use this for Elastic Defend CPU, Fleet diagnostics, or questions that are not an incident runbook.",
+  "tags": ["security", "runbooks", "sibs"],
+  "configuration": {
+    "pattern": "security-runbooks",
+    "row_limit": 3,
+    "custom_instructions": "Each document is one runbook. Return runbook_id, title, category, symptoms, and steps, with the closest incident first. Keep the steps in document order. Do not merge two runbooks into one answer."
+  }
+}

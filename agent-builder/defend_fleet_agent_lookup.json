@@ -1,0 +1,15 @@
+{
+  "id": "defend_fleet_agent_lookup",
+  "type": "esql",
+  "description": "Resolves the Fleet agent.id for a host.name from current Elastic Defend metadata. Use it only after you have decided Elastic Defend is the cause, so you can request that agent's diagnostics. Parameter host is the exact host.name.",
+  "tags": ["defend", "fleet", "sibs"],
+  "configuration": {
+    "query": "FROM metrics-endpoint.metadata_current_default | WHERE host.name == ?host AND agent.id IS NOT NULL | SORT @timestamp DESC | KEEP host.name, agent.id, @timestamp | LIMIT 1",
+    "params": {
+      "host": {
+        "type": "string",
+        "description": "Exact host.name of the machine from the alert"
+      }
+    }
+  }
+}

@@ -1,0 +1,42 @@
+{
+  "rule_id": "defend-host-cpu-90",
+  "name": "Host CPU at or above 90 percent",
+  "description": "Fires when any CPU sample for a host reaches 0.9. The rule checks every minute and looks back 20 minutes, because these metrics take several minutes to arrive. 0.9 means 90 percent. The attached workflow asks the Defend CPU triage agent whether Elastic Defend is the cause.",
+  "type": "esql",
+  "language": "esql",
+  "query": "FROM metrics-system.cpu-*\n| STATS avg_cpu = AVG(system.cpu.total.norm.pct), max_cpu = MAX(system.cpu.total.norm.pct) BY host.name\n| WHERE max_cpu >= 0.9\n| KEEP host.name, avg_cpu, max_cpu",
+  "severity": "high",
+  "risk_score": 73,
+  "enabled": true,
+  "interval": "1m",
+  "from": "now-20m",
+  "to": "now",
+  "max_signals": 100,
+  "tags": ["defend-cpu", "sibs"],
+  "author": ["SIBS"],
+  "false_positives": [
+    "A legitimate workload can hold a host at or above 90 percent CPU without Elastic Defend being the main contributor. The triage agent records that and does not request diagnostics."
+  ],
+  "note": "This rule starts the Defend CPU triage workflow. The agent opens one Security case. It requests Fleet diagnostics only when Elastic Defend is the top CPU contributor and the host is still at or above 90 percent.",
+  "alert_suppression": {
+    "group_by": ["host.name"],
+    "duration": {
+      "value": 30,
+      "unit": "m"
+    },
+    "missing_fields_strategy": "suppress"
+  },
+  "actions": [
+    {
+      "id": "system-connector-.workflows",
+      "action_type_id": ".workflows",
+      "params": {
+        "subAction": "run",
+        "subActionParams": {
+          "workflowId": "defend-cpu-triage",
+          "summaryMode": false
+        }
+      }
+    }
+  ]
+}
