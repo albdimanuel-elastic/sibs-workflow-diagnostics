@@ -1,4 +1,6 @@
 {
+  "id": "record_defend_audit",
+  "type": "workflow",
   "description": "Writes one audit event for the Defend CPU trail. Call it after the decision (stage agent), after the diagnostics decision (stage action), after the case is open (stage case), and for the final verdict (stage verdict). Always send execution_id from the workflow message, the host, max_cpu, and avg_cpu as fractions.",
   "tags": ["defend", "audit", "sibs"],
   "configuration": {

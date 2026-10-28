@@ -54,6 +54,103 @@ flowchart TD
 | `runbooks/` | Security runbook content for the guide agent |
 | `scripts/` | SSH helpers that put CPU load on the agent host |
 
+## Install in the client's Elastic project
+
+Do this once, in the client's Security project, before the demo. The commands use the [elastic CLI](https://github.com/elastic/cli) 0.5 or later and `jq`.
+
+The project needs:
+
+- Workflows and Agent Builder, and an AI connector already selected for Agent Builder.
+- Elastic Agent system metrics in `metrics-system.cpu-*` and `metrics-system.process-*`.
+- Elastic Defend on the hosts you want to diagnose. The agent lookup reads `metrics-endpoint.metadata_current_default`, and the diagnostics step calls Fleet.
+- An API key that can create the `sibs-defend-audit` index, read those metrics indices, and use Kibana for Agent Builder, Workflows, detection rules, dashboards, cases, and Fleet diagnostics.
+
+```bash
+cp .env.example .env
+```
+
+Fill `KIBANA_URL`, `ELASTICSEARCH_URL`, and `ELASTICSEARCH_API_KEY` with the client's project. Leave the key in `.env`.
+
+```bash
+set -a && source .env && set +a
+
+elastic config context add client \
+  --kb-url "$KIBANA_URL" \
+  --es-url "$ELASTICSEARCH_URL" \
+  --kb-api-key "$ELASTICSEARCH_API_KEY" \
+  --es-api-key "$ELASTICSEARCH_API_KEY"
+
+elastic config current-context set client
+```
+
+Create the objects in this order. The tools call the diagnostics and audit workflows, the agent calls the tools, and the detection rule calls the triage workflow. A create fails if that id already exists.
+
+```bash
+elastic stack es indices create \
+  --index sibs-defend-audit \
+  --mappings "$(cat audit/sibs-defend-audit.mapping.json)"
+
+wf() {
+  jq -n --arg id "$1" --rawfile yaml "$2" '{id:$id, yaml:$yaml}' > "/tmp/$1.workflow.json"
+  elastic stack kb workflows post-workflows-workflow --input-file "/tmp/$1.workflow.json"
+}
+
+wf request-defend-diagnostics workflows/request-defend-diagnostics.yaml
+wf record-defend-audit workflows/record-defend-audit.yaml
+
+for tool in \
+  agent-builder/defend_host_cpu.json \
+  agent-builder/defend_top_processes.json \
+  agent-builder/defend_fleet_agent_lookup.json \
+  agent-builder/request_defend_diagnostics.json \
+  agent-builder/record_defend_audit.json
+do
+  elastic stack kb agent-builder post-agent-builder-tools --input-file "$tool"
+done
+
+elastic stack kb agent-builder post-agent-builder-skills --input-file agent-builder/skill.json
+elastic stack kb agent-builder post-agent-builder-agents --input-file agent-builder/agent.json
+
+wf defend-cpu-triage workflows/defend-cpu-triage.yaml
+
+elastic stack kb dashboards upsert-dashboard \
+  --id elastic-agent-host-cpu \
+  --input-file dashboards/elastic-agent-host-cpu.json
+elastic stack kb dashboards upsert-dashboard \
+  --id defend-cpu-audit \
+  --input-file dashboards/defend-cpu-audit.json
+
+elastic stack kb security-detections-api create-rule \
+  --input-file security/defend-host-cpu-90.json
+```
+
+The rule is enabled when it is created. It checks every minute. Import it last so it does not fire against a half-installed project.
+
+Leave `alerting/` out of a Security project. That folder is the same condition as a Kibana alerting rule. Enabling it would run the triage workflow a second time.
+
+### Runbooks, optional
+
+`runbooks/` and `agent-builder/security-runbook-guide.*` are a separate agent that only looks up incident procedures. They are not part of the CPU triage. `security-runbooks` uses a `semantic_text` field, so the project needs a semantic text inference endpoint before the index will create.
+
+```bash
+elastic stack es indices create \
+  --index security-runbooks \
+  --mappings "$(cat runbooks/security-runbooks.mapping.json)"
+
+curl -sS \
+  -H "Authorization: ApiKey $ELASTICSEARCH_API_KEY" \
+  -H "Content-Type: application/x-ndjson" \
+  --data-binary @runbooks/security-runbooks.ndjson \
+  "$ELASTICSEARCH_URL/_bulk?refresh=true"
+
+elastic stack kb agent-builder post-agent-builder-tools \
+  --input-file agent-builder/security_runbook_search.json
+elastic stack kb agent-builder post-agent-builder-skills \
+  --input-file agent-builder/security-runbook-guide.skill.json
+elastic stack kb agent-builder post-agent-builder-agents \
+  --input-file agent-builder/security-runbook-guide.agent.json
+```
+
 ## Objects in Kibana
 
 | What | Where | Name |
@@ -75,19 +172,13 @@ Leave the Universal Alerting copy of the rule disabled. In a Security project it
 
 ## Before the session
 
-```bash
-cp .env.example .env
-```
-
-Set the agent host and the SSH key in `.env`. Do not commit that file.
+The Elastic URLs and API key are set in [Install in the client's Elastic project](#install-in-the-clients-elastic-project). For the CPU load scripts, add the agent host to the same `.env`:
 
 ```bash
 AGENT_HOST=<agent-host>
 AGENT_USER=ubuntu
 AGENT_SSH_KEY=/path/to/private-key
 ```
-
-`KIBANA_URL`, `ELASTICSEARCH_URL`, and `ELASTICSEARCH_API_KEY` are for the Elastic project you import these objects into. The API key stays in `.env`.
 
 Turn on the rule **Host CPU at or above 90 percent**. Open **Elastic Agent host CPU** in another tab (last 30 minutes, refresh every 10 seconds).
 
